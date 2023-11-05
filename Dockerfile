@@ -1,6 +1,6 @@
 ### IMPORTANT, THIS IMAGE CAN ONLY BE RUN IN LINUX DOCKER
 ### You will run into a segfault in mac
-FROM python:3.11.6-slim-bookworm as base
+FROM wallies/python-cuda:3.11-cuda12.2-runtime as base
 
 # Install poetry
 RUN pip install pipx
@@ -23,7 +23,9 @@ FROM base as dependencies
 WORKDIR /home/worker/app
 COPY pyproject.toml poetry.lock ./
 
-RUN poetry install --with ui
+RUN poetry install --with ui,local
+
+RUN CMAKE_ARGS="-DLLAMA_CUBLAS=on" pip install --force-reinstall --no-cache-dir llama-cpp-python
 
 FROM base as app
 
@@ -42,6 +44,7 @@ COPY --chown=worker --from=dependencies /home/worker/app/.venv/ .venv
 COPY --chown=worker private_gpt/ private_gpt
 COPY --chown=worker docs/ docs
 COPY --chown=worker *.yaml *.md ./
+COPY --chown=worker models/ models/
 
 USER worker
 ENTRYPOINT .venv/bin/python -m private_gpt
